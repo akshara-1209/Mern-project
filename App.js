@@ -24,8 +24,8 @@ function randomizePortals(locations) {
     .sort((a, b) => a.sort - b.sort)
     .map(({ value }) => value);
 
-  // Randomize time effects for each special location (accelerated, reverse, normal)
-  const timeEffects = ["accelerated", "reverse", "normal"];
+  // Randomize time effects for each special location (accelerated, decelerated, reverse)
+  const timeEffects = ["accelerated", "decelerated", "reverse"];
   const shuffledEffects = timeEffects
     .map((effect) => ({ effect, sort: Math.random() }))
     .sort((a, b) => a.sort - b.sort)
@@ -39,10 +39,10 @@ function randomizePortals(locations) {
     // Set the timeModifier based on the effect
     if (shuffledEffects[i] === "accelerated") {
       locations[shuffled[i]].timeModifier = 1.5;
+    } else if (shuffledEffects[i] === "decelerated") {
+      locations[shuffled[i]].timeModifier = 0.5;
     } else if (shuffledEffects[i] === "reverse") {
       locations[shuffled[i]].timeModifier = -1;
-    } else {
-      locations[shuffled[i]].timeModifier = 1;
     }
   }
   locations["Central Hub"].exits["treasure"] = "Treasure Vault";
@@ -131,14 +131,14 @@ const getInitialGameState = (locations) => {
     if (elapsed > 10) elapsed = 10; // Only allow 10s max
     
     const currentLocation =
-      parsed.location && parsed.location in initialLocations
+      parsed.location && parsed.location in locations
         ? parsed.location
         : "Central Hub";
     
     let gameTimeDelta = elapsed;
     
     if (currentLocation !== "Central Hub" && currentLocation !== "Treasure Vault") {
-      const timeModifier = initialLocations[currentLocation]?.timeModifier || 1;
+      const timeModifier = locations[currentLocation]?.timeModifier || 1;
       gameTimeDelta = elapsed * timeModifier;
       parsed.locationTimer = Math.max(0, parsed.locationTimer - elapsed);
     }
@@ -179,6 +179,7 @@ function App() {
   const [gameState, setGameState] = useState(() => getInitialGameState(locations));
   const [isTimeUpPopupVisible, setIsTimeUpPopupVisible] = useState(false);
   const [isResetConfirmVisible, setIsResetConfirmVisible] = useState(false);
+  const [isWinPopupVisible, setIsWinPopupVisible] = useState(false);
 
   // Console log
   const [logs, setLogs] = useState([]);
@@ -220,10 +221,7 @@ function App() {
               gameTimeDelta = deltaTime * 1.5; // 3 minutes in 2 minutes = 1.5x
               break;
             case "decelerated":
-              // Custom logic: while user is in deceleration mode, the game time should go only 1 minute forward within 2 minutes of location time
-              // So, for every second of location time, only 1/2 second of game time should advance
-              // i.e., gameTimeDelta = (elapsed location time / 2)
-              gameTimeDelta = (deltaTime * 1) / 2;
+              gameTimeDelta = deltaTime * 0.5; // 1 minute in 2 minutes = 0.5x
               break;
             case "reverse":
               gameTimeDelta = deltaTime * -1; // time goes backward
@@ -324,11 +322,8 @@ function App() {
     }
 
     if (loc === "Treasure Vault" || (!loc && gameState.location === "Treasure Vault")) {
-      setGameState((prev) => ({ ...prev, score: prev.score + 10000 }));
-      log("🎉 CONGRATULATIONS! YOU WON! 🎉", "treasure");
-      log(`🏆 VICTORY! FINAL SCORE: ${(gameState.score + 10000).toLocaleString()} POINTS!`, "treasure");
-      log("You have mastered the art of chronos terminal!", "treasure");
-      showFinalStatus();
+      setGameState((prev) => ({ ...prev, score: prev.score + 10000, gameActive: false }));
+      setIsWinPopupVisible(true);
       return;
     }
 
@@ -440,10 +435,6 @@ function App() {
         log("");
         log("💡 TIP: Collect all 3 keys to unlock the treasure vault!");
         log("");
-        log("⏰ TIME EFFECTS:");
-        log("• ACCELERATED: Game time advances 1.5x (3min in 2min location time)");
-        log("• DECELERATED: Game time advances 0.5x (1min in 2min location time)");
-        log("• REVERSE: Game time flows backward while in location!");
         break;
       case "north":
       case "south":
@@ -543,6 +534,7 @@ function App() {
   function resetGame() {
     setIsTimeUpPopupVisible(false);
     setIsResetConfirmVisible(false);
+    setIsWinPopupVisible(false);
     setLocations(() => {
       const locs = deepClone(initialLocations);
       randomizePortals(locs);
@@ -599,6 +591,20 @@ function App() {
   // UI
   return (
     <div>
+      {isWinPopupVisible && (
+        <div className="popup-overlay">
+          <div className="popup-content win-popup">
+            <h1>🎉 CONGRATULATIONS!</h1>
+            <p>You have mastered the Chronos Terminal!</p>
+            <div className="win-popup-stats">
+              <p><strong>🏆 Final Score:</strong> {gameState.score.toLocaleString()}</p>
+              <p><strong>⏰ Game Time:</strong> {formatTime(gameState.gameTime)}</p>
+              <p><strong>🕒 Constant Game Time:</strong> {formatTime(gameState.constantGameTime)}</p>
+            </div>
+            <button onClick={resetGame}>🔄 Play Again</button>
+          </div>
+        </div>
+      )}
       {isTimeUpPopupVisible && (
         <div className="popup-overlay">
           <div className="popup-content game-over-popup">
