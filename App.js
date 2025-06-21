@@ -283,10 +283,6 @@ function App() {
     log("");
     log("💡 TIPS:", "success");
     log("• Use \"help\" to see all available commands");
-    log("• Watch your location timer - you have 2 minutes per special location!");
-    log("• ACCELERATED: Game time moves 1.5x faster (3min in 2min)");
-    log("• DECELERATED: Game time moves 0.5x slower (1min in 2min)");
-    log("• REVERSE: Game time flows backward!");
     log("• Answer questions correctly to progress");
     log("• Collect keys to unlock the treasure vault");
     log("");
