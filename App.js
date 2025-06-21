@@ -144,6 +144,8 @@ const getInitialGameState = (locations) => {
     }
     
     parsed.gameTime += gameTimeDelta;
+    // Add elapsed real time to the constant game time
+    parsed.constantGameTime = (parsed.constantGameTime || 0) + elapsed;
     parsed.lastTickTime = now;
     return parsed;
   }
@@ -153,6 +155,7 @@ const getInitialGameState = (locations) => {
     keys: [],
     location: "Central Hub",
     gameTime: 0,
+    constantGameTime: 0, // New state for the constant timer
     locationTimer: 120,
     timeEffect: "normal",
     awaitingAnswer: false,
@@ -174,6 +177,8 @@ function App() {
 
   // Game State
   const [gameState, setGameState] = useState(() => getInitialGameState(locations));
+  const [isTimeUpPopupVisible, setIsTimeUpPopupVisible] = useState(false);
+  const [isResetConfirmVisible, setIsResetConfirmVisible] = useState(false);
 
   // Console log
   const [logs, setLogs] = useState([]);
@@ -230,6 +235,7 @@ function App() {
 
         let newGameTime = prev.gameTime + gameTimeDelta;
         let newLocationTimer = prev.locationTimer;
+        const newConstantGameTime = prev.constantGameTime + deltaTime; // Always increment constant time
 
         if (prev.location !== "Central Hub" && prev.location !== "Treasure Vault") {
           newLocationTimer = Math.max(0, prev.locationTimer - deltaTime);
@@ -248,6 +254,7 @@ function App() {
         return {
           ...prev,
           gameTime: newGameTime,
+          constantGameTime: newConstantGameTime,
           locationTimer: newLocationTimer,
           lastTickTime: now,
         };
@@ -268,7 +275,7 @@ function App() {
   useEffect(() => {
     setLogs([]);
     log("🌟 ═══════════════════════════════════════════════════════════════════════════════════════════", "success");
-    log("🌟 WELCOME TO TIME TRAVEL ADVENTURE! 🌟", "success");
+    log("🌟 WELCOME TO CHRONOS TERMINAL! 🌟", "success");
     log("🌟 ═══════════════════════════════════════════════════════════════════════════════════════════", "success");
     log("");
     log("🎯 YOUR MISSION: Collect all 3 keys from different time-distorted locations!", "treasure");
@@ -324,7 +331,7 @@ function App() {
       setGameState((prev) => ({ ...prev, score: prev.score + 10000 }));
       log("🎉 CONGRATULATIONS! YOU WON! 🎉", "treasure");
       log(`🏆 VICTORY! FINAL SCORE: ${(gameState.score + 10000).toLocaleString()} POINTS!`, "treasure");
-      log("You have mastered the art of time travel!", "treasure");
+      log("You have mastered the art of chronos terminal!", "treasure");
       showFinalStatus();
       return;
     }
@@ -359,10 +366,11 @@ function App() {
 
   function endGameTimeUp() {
     setGameState((prev) => ({ ...prev, gameActive: false }));
-    log("⏰ TIME'S UP! ⏰", "game-over");
-    log(`You ran out of time in ${gameState.location}!`, "game-over");
-    log(`🏆 FINAL SCORE: ${gameState.score.toLocaleString()} POINTS`, "game-over");
     showFinalStatus();
+    // Use a timeout to ensure the score renders before the alert appears
+    setTimeout(() => {
+      setIsTimeUpPopupVisible(true);
+    }, 100);
   }
 
   function showFinalStatus() {
@@ -407,7 +415,7 @@ function App() {
     }
     
     log("");
-    log("Thanks for playing Time Travel Adventure!", "success");
+    log("Thanks for playing chronos terminal!", "success");
     log('Click "Reset Game" to play again!', "success");
   }
 
@@ -537,6 +545,8 @@ function App() {
 
   // Reset Game
   function resetGame() {
+    setIsTimeUpPopupVisible(false);
+    setIsResetConfirmVisible(false);
     setLocations(() => {
       const locs = deepClone(initialLocations);
       randomizePortals(locs);
@@ -547,6 +557,7 @@ function App() {
       keys: [],
       location: "Central Hub",
       gameTime: 0,
+      constantGameTime: 0, // Reset constant timer
       locationTimer: 120,
       timeEffect: "normal",
       awaitingAnswer: false,
@@ -561,7 +572,7 @@ function App() {
     localStorage.removeItem(GAME_STORAGE_KEY);
     // Intro logs
     log("🌟 ═══════════════════════════════════════════════════════════════════════════════════════════", "success");
-    log("🌟 WELCOME TO TIME TRAVEL ADVENTURE! 🌟", "success");
+    log("🌟 WELCOME TO CHRONOS TERMINAL! 🌟", "success");
     log("🌟 ═══════════════════════════════════════════════════════════════════════════════════════════", "success");
     log("");
     log("🎯 YOUR MISSION: Collect all 3 keys from different time-distorted locations!", "treasure");
@@ -592,14 +603,42 @@ function App() {
   // UI
   return (
     <div>
+      {isTimeUpPopupVisible && (
+        <div className="popup-overlay">
+          <div className="popup-content game-over-popup">
+            <h1>⏰ TIME'S UP! ⏰</h1>
+            <p>You ran out of time in {gameState.location}!</p>
+            <p>Final Score: {gameState.score.toLocaleString()}</p>
+            <button onClick={resetGame}>🔄 Play Again</button>
+          </div>
+        </div>
+      )}
+
+      {isResetConfirmVisible && (
+        <div className="popup-overlay">
+          <div className="popup-content reset-confirm-popup">
+            <h2>🔄 Reset Game?</h2>
+            <p>Are you sure you want to start over? All progress will be lost.</p>
+            <div className="popup-buttons">
+              <button onClick={resetGame} className="popup-button-yes">
+                Yes, Reset
+              </button>
+              <button onClick={() => setIsResetConfirmVisible(false)} className="popup-button-no">
+                No, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="header">
-        <h1>🌀 TIME TRAVEL ADVENTURE 🌀</h1>
+        <h1>🌀 CHRONOS TERMINAL 🌀</h1>
         <p>Collect keys and solve puzzles across time-warped locations!</p>
       </div>
       <div id="status-panel">
         <div className="status-item">
-          <span className="status-label">🕒 Real Time:</span>
-          <span className="status-value">{new Date().toLocaleTimeString()}</span>
+          <span className="status-label">🕒 Constant Game Time:</span>
+          <span className="status-value">{formatTime(gameState.constantGameTime)}</span>
         </div>
         <div className="status-item">
           <span className="status-label">⏰ Game Time:</span>
@@ -670,10 +709,6 @@ function App() {
             <p className="treasure">💰 Need ALL 3 keys for treasure!</p>
             <p className="warning">⚠ 2 minutes per location!</p>
             <br />
-            <h4>⏰ TIME EFFECTS:</h4>
-            <p className="warning">🚀 ACCELERATED: 3min→2min</p>
-            <p className="success">🐌 DECELERATED: 1min→2min</p>
-            <p className="error">🔄 REVERSE: Time backward!</p>
           </div>
         </div>
       </div>
@@ -688,7 +723,7 @@ function App() {
           ref={inputRef}
         />
         <div style={{ marginTop: 10, textAlign: "left" }}>
-          <button id="reset-button" type="button" onClick={resetGame}>
+          <button id="reset-button" type="button" onClick={() => setIsResetConfirmVisible(true)}>
             🔄 Reset Game
           </button>
         </div>
